@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>NotePro - Aplicación de Notas</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght;300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4" v-if="currentUser">
+      <div class="container">
+        <a class="navbar-brand" href="#">
+          <i class="fas fa-sticky-note mr-2"></i>NotePro
+        </a>
+        <div class="user-info ml-auto">
+          <div class="user-avatar">
+            {{ currentUser.username.charAt(0).toUpperCase() }}
+          </div>
+          <span class="mr-3">{{ currentUser.username }}</span>
+          <button @click="logout" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-sign-out-alt mr-1"></i>Salir
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Authentication Section -->
+    <div v-if="!currentUser" class="auth-container">
+      <h2 class="auth-title">
+        <i class="fas fa-sticky-note mr-2"></i>NotePro
+      </h2>
+      <h4 class="text-center mb-4">{{ isLogin ? 'Iniciar Sesión' : 'Registrarse' }}</h4>
+      
+      <div class="form-group">
+        <label for="username">
+          <i class="fas fa-user mr-2"></i>Nombre de usuario:
+        </label>
+        <input 
+          type="text" 
+          v-model="auth.username" 
+          class="form-control" 
+          id="username" 
+          placeholder="Ingresa tu nombre de usuario"
+          @keyup.enter="handleAuth()"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="password">
+          <i class="fas fa-lock mr-2"></i>Contraseña:
+        </label>
+        <input 
+          type="password" 
+          v-model="auth.password" 
+          class="form-control" 
+          id="password" 
+          placeholder="Ingresa tu contraseña"
+          @keyup.enter="handleAuth()"
+        >
+      </div>
+      
+      <div class="form-group">
+        <button @click="handleAuth()" class="btn btn-primary btn-block">
+          <i :class="isLogin ? 'fas fa-sign-in-alt' : 'fas fa-user-plus'" class="mr-2"></i>
+          {{ isLogin ? 'Iniciar Sesión' : 'Registrarse' }}
+        </button>
+      </div>
+      
+      <div class="auth-switch">
+        <a href="#" @click.prevent="isLogin = !isLogin">
+          {{ isLogin ? '¿No tienes una cuenta? Regístrate' : '¿Ya tienes una cuenta? Inicia sesión' }}
+        </a>
+      </div>
+    </div>
+
+    <!-- Notes Section - Split Screen Layout -->
+    <div v-if="currentUser" class="container">
+      <div class="row">
+        <!-- Left Side: Form -->
+        <div class="col-lg-5 order-lg-first">
+          <div class="form-container">
+            <!-- Color Picker -->
+            <div class="color-picker-container mb-4">
+              <label for="color" class="color-picker-label">
+                <i class="fas fa-palette mr-2"></i>Color para nuevas notas:
+              </label>
+              <input id="color" type="color" v-model="selectedColor" @change="onColorChanged">
+            </div>
+            
+            <!-- New Note Form -->
+            <div class="note-form-wrapper" v-if="!editingNote">
+              <div class="note-form-scrollable">
+                <h3 class="section-title">
+                  <i class="fas fa-plus-circle mr-2"></i>Nueva Nota
+                </h3>
+                <div class="form-group">
+                  <label for="noteTitle">
+                    <i class="fas fa-heading mr-2"></i>Título:
+                  </label>
+                  <input 
+                    type="text" 
+                    v-model="newNote.title" 
+                    class="form-control" 
+                    id="noteTitle" 
+                    placeholder="Título de la nota"
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="note">
+                    <i class="fas fa-align-left mr-2"></i>Contenido:
+                  </label>
+                  <textarea 
+                    placeholder="Escribe aquí..." 
+                    ref="textarea" 
+                    v-model="newNote.content" 
+                    class="form-control content-textarea" 
+                    id="note" 
+                    rows="8"
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <div class="note-preview" :style="{'background-color': selectedColor}">
+                    <div class="preview-title">Vista previa del color</div>
+                    <div class="preview-content">
+                      <p>Así se verá tu nueva nota con este color.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="note-form-actions">
+                <button @click="saveNote()" class="btn btn-success">
+                  <i class="fas fa-save mr-2"></i>Guardar
+                </button>
+              </div>
+            </div>
+            
+            <!-- Edit Note Form -->
+            <div class="note-form-wrapper" v-if="editingNote">
+              <div class="note-form-scrollable">
+                <h3 class="section-title">
+                  <i class="fas fa-edit mr-2"></i>Editar Nota
+                </h3>
+                <div class="form-group">
+                  <label for="editNoteTitle">
+                    <i class="fas fa-heading mr-2"></i>Título:
+                  </label>
+                  <input 
+                    type="text" 
+                    v-model="editingNote.title" 
+                    class="form-control" 
+                    id="editNoteTitle" 
+                    placeholder="Título de la nota"
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="editNote">
+                    <i class="fas fa-align-left mr-2"></i>Contenido:
+                  </label>
+                  <textarea 
+                    placeholder="Escribe aquí..." 
+                    v-model="editingNote.content" 
+                    class="form-control content-textarea" 
+                    id="editNote" 
+                    rows="8"
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="editNoteColor">
+                    <i class="fas fa-palette mr-2"></i>Color de esta nota:
+                  </label>
+                  <div class="d-flex align-items-center">
+                    <input 
+                      type="color" 
+                      v-model="editingNote.color" 
+                      id="editNoteColor"
+                    >
+                  </div>
+                </div>
+                <div class="form-group">
+                  <div class="note-preview" :style="{'background-color': editingNote.color}">
+                    <div class="preview-title">Vista previa del color</div>
+                    <div class="preview-content">
+                      <p>Así se verá tu nota con este color.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="note-form-actions">
+                <button @click="saveEditingNote()" class="btn btn-success mr-2">
+                  <i class="fas fa-save mr-2"></i>Guardar
+                </button>
+                <button @click="cancelEdit()" class="btn btn-warning">
+                  <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Side: Notes List -->
+        <div class="col-lg-7 order-lg-last">
+          <h3 class="section-title" v-if="notes.length > 0">
+            <i class="fas fa-sticky-note mr-2"></i>Mis Notas
+          </h3>
+          
+          <!-- Empty state -->
+          <div class="empty-notes" v-if="notes.length === 0">
+            <i class="fas fa-sticky-note"></i>
+            <h4>No tienes notas</h4>
+            <p>Crea tu primera nota usando el formulario de la izquierda.</p>
+          </div>
+          
+          <!-- Notes list -->
+          <div class="notes-container">
+            <div v-for="note in notes" :key="note.id" class="note-card" 
+                 :style="{'background-color': note.color || '#4fc3f7'}">
+              <div class="note-title">{{ note.title || 'Sin título' }}</div>
+              <div class="note-content">{{ note.content }}</div>
+              <div class="note-time">
+                <i class="far fa-clock mr-1"></i>{{note.time | toLocaleDateString}}
+              </div>
+              <div class="note-actions">
+                <button @click="editNote(note)" class="btn btn-warning btn-sm">
+                  <i class="fas fa-edit mr-1"></i>Editar
+                </button>
+                <button @click="deleteNote(note)" class="btn btn-danger btn-sm">
+                  <i class="fas fa-trash-alt mr-1"></i>Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
