@@ -46,6 +46,18 @@ new Vue({
       this.loadLastUsedColor()
     }
   },
+  watch: {
+    // Watch for changes in editingNote to update the color picker
+    editingNote(newVal) {
+      if (newVal) {
+        // When starting to edit a note, set the color picker to the note's color
+        this.selectedColor = newVal.color || DEFAULT_COLOR
+      } else {
+        // When finishing editing, load the last used color
+        this.loadLastUsedColor()
+      }
+    },
+  },
   methods: {
     // User management methods
     loadUsers() {
@@ -138,7 +150,21 @@ new Vue({
     },
 
     onColorChanged() {
+      // Save the selected color
       localStorage.setItem(this.getUserColorKey(), this.selectedColor)
+
+      // If we're editing a note, update its color
+      if (this.editingNote) {
+        this.editingNote.color = this.selectedColor
+
+        // Also update the note in the array to see changes immediately
+        const index = this.notes.findIndex((n) => n.id === this.editingNote.id)
+        if (index !== -1) {
+          // Create a temporary object with updated color for visual feedback
+          const updatedNote = { ...this.notes[index], color: this.selectedColor }
+          this.notes.splice(index, 1, updatedNote)
+        }
+      }
     },
 
     focusTextarea() {
@@ -244,6 +270,9 @@ new Vue({
       // Update the time
       this.editingNote.time = Date.now()
 
+      // Make sure the color is properly set (using the selectedColor from the color picker)
+      this.editingNote.color = this.selectedColor
+
       // Save to localStorage
       localStorage.setItem(this.editingNote.id, JSON.stringify(this.editingNote))
 
@@ -251,7 +280,11 @@ new Vue({
       const index = this.notes.findIndex((n) => n.id === this.editingNote.id)
       if (index !== -1) {
         // Create a new object to ensure reactivity
-        this.notes.splice(index, 1, { ...this.editingNote })
+        const updatedNote = { ...this.editingNote }
+        this.notes.splice(index, 1, updatedNote)
+
+        // Sort notes by time (newest first) after updating
+        this.notes.sort((a, b) => b.time - a.time)
       }
 
       // Clear the editing state
